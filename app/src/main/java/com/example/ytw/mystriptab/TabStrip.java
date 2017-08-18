@@ -18,8 +18,11 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.view.animation.LinearInterpolator;
 import android.widget.Scroller;
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.Random;
 
 /**
  * @Date 创建时间:  2017/8/18
@@ -169,8 +172,74 @@ public class TabStrip extends View {
         setActiveColor(
             typedArray.getColor(R.styleable.TabStrip_tab_active_color, DEFAULT_ACTIVE_COLOR));
 
-        setAnimationDuration(typedArray
-            .getInteger(R.styleable.TabStrip_tab_animation_duration, DEFAULT_ANIMATION_DURATION));
+        setAnimationDuration(typedArray.getInteger(R.styleable.TabStrip_tab_animation_duration,
+            DEFAULT_ANIMATION_DURATION));
+
+        setCornersRadius(typedArray.getDimension(R.styleable.TabStrip_tab_corners_radius,
+            DEFAULT_CORENR_RADIUS));
+
+        //get title
+        String[] titles = null;
+        try {
+            final int titlesResId = typedArray.getResourceId(R.styleable.TabStrip_tab_title, 0);
+            titles =
+                titlesResId == 0 ? null : typedArray.getResources().getStringArray(titlesResId);
+        } catch (Exception e) {
+            titles = null;
+            e.printStackTrace();
+        } finally {
+            if (titles == null) {
+                if (isInEditMode()) {
+                    titles = new String[new Random().nextInt(5) + 1];
+                    Arrays.fill(titles, PREVIEW_TITLE);
+                } else {
+                    titles = new String[0];
+                }
+            }
+            setTitles(titles);
+        }
+
+        //初始化动画
+        mAnimator.setFloatValues(MIN_FRACTION, MAX_FRACTION);
+        mAnimator.setInterpolator(new LinearInterpolator());
+        mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                updateIndicatorPosition((float) valueAnimator.getAnimatedValue());
+            }
+        });
+
+        typedArray.recycle();
+    }
+
+    private void updateIndicatorPosition(float fraction) {
+        //update general fraction
+        mFraction = fraction;
+
+        //设置strip左边的坐标
+        mStripLeft =
+            mStartStripX + (mResizeInterpolator.getResizeInterpolation(fraction, mIsResizeIn) * (
+                mEndStripX
+                    - mStartStripX));
+
+        //设置strip右边的坐标
+        mStripRight = (mStartStripX + (mStripType == StripType.LINE ? mTabSize : mStripWeight)) + (
+            mResizeInterpolator.getResizeInterpolation(fraction, !mIsResizeIn)
+                * (mEndStripX - mStartStripX));
+
+        postInvalidate();
+    }
+
+    private void setTitles(String[] titles) {
+        for (int i = 0; i < titles.length; i++) {
+            titles[i] = titles[i].toUpperCase();
+        }
+        mTitles = titles;
+        requestLayout();
+    }
+
+    private void setCornersRadius(float cornersRadius) {
+        mCornersRadius = cornersRadius;
+        postInvalidate();
     }
 
     private void setAnimationDuration(int duration) {
@@ -295,8 +364,7 @@ public class TabStrip extends View {
             mFactor = factor;
         }
 
-        @Override
-        public float getInterpolation(float input) {
+        @Override public float getInterpolation(float input) {
             if (mResizeIn) {
                 return (float) (1.0F - Math.pow((1.0F - input), 2.0F * mFactor));
             } else {
@@ -329,13 +397,11 @@ public class TabStrip extends View {
             super(context, new AccelerateDecelerateInterpolator());
         }
 
-        @Override
-        public void startScroll(int startX, int startY, int dx, int dy) {
+        @Override public void startScroll(int startX, int startY, int dx, int dy) {
             super.startScroll(startX, startY, dx, dy, mAnimationDuration);
         }
 
-        @Override
-        public void startScroll(int startX, int startY, int dx, int dy, int duration) {
+        @Override public void startScroll(int startX, int startY, int dx, int dy, int duration) {
             super.startScroll(startX, startY, dx, dy, mAnimationDuration);
         }
     }
@@ -346,5 +412,4 @@ public class TabStrip extends View {
 
         void onEndTabSelected(final String title, final int index);
     }
-
 }

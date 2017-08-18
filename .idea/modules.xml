@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/MyStripTab.iml" filepath="$PROJECT_DIR$/MyStripTab.iml" />
+      <module fileurl="file://$PROJECT_DIR$/StripTab.iml" filepath="$PROJECT_DIR$/StripTab.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
