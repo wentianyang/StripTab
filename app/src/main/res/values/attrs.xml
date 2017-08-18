@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="TabStrip">
+        <attr format="color" name="tab_color"/>
+        <attr format="dimension" name="tab_size"/>
+        <attr format="dimension" name="tab_weight"/>
+        <attr format="float" name="tab_factor"/>
+        <attr format="reference" name="tab_title"/>
+
+        <attr format="enum" name="tab_type">
+            <enum name="line" value="0"/>
+            <enum name="point" value="1"/>
+        </attr>
+
+        <attr format="enum" name="tab_gravity">
+            <enum name="bottom" value="0"/>
+            <enum name="top" value="1"/>
+        </attr>
+
+        <attr format="string" name="tab_typeface"/>
+        <attr format="dimension" name="tab_corners_radius"/>
+        <attr format="integer" name="tab_animation_duration"/>
+
+        <attr format="color" name="tab_inactive_color"/>
+        <attr format="color" name="tab_active_color"/>
+    </declare-styleable>
+</resources>

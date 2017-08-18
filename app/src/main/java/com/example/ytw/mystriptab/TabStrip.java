@@ -1,0 +1,350 @@
+package com.example.ytw.mystriptab;
+
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.support.annotation.Nullable;
+import android.support.v4.view.ViewCompat;
+import android.support.v4.view.ViewPager;
+import android.text.TextPaint;
+import android.text.TextUtils;
+import android.util.AttributeSet;
+import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.Interpolator;
+import android.widget.Scroller;
+import java.lang.reflect.Field;
+
+/**
+ * @Date 创建时间:  2017/8/18
+ * @Author: YTW
+ * @Description:
+ **/
+
+public class TabStrip extends View {
+
+    //
+    private final static int HIGH_QUALITY_FLAGS = Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG;
+    private final static String PREVIEW_TITLE = "Title";
+    private final static int INVALID_INDEX = -1;
+
+    private final static int DEFAULT_ANIMATION_DURATION = 350;
+    private final static float DEFAULT_STRIP_FACTOR = 2.5F;
+    private final static float DEFAULT_STRIP_WEIGHT = 10.0F;
+    private final static float DEFAULT_CORENR_RADIUS = 5.0F;
+    private final static int DEFAULT_INACTIVE_COLOR = Color.GRAY;
+    private final static int DEFAULT_ACTIVE_COLOR = Color.WHITE;
+    private final static int DEFAULT_STRIP_COLOR = Color.RED;
+    private final static int DEFAULT_TITLE_SIZE = 0;
+
+    private final static float TITLE_SIZE_FRACTION = 0.35F;
+
+    private final static float MIN_FRACTION = 0.0F;
+    private final static float MAX_FRACTION = 1.0F;
+
+    private final RectF mBounds = new RectF();
+    private final RectF mStripBounds = new RectF();
+    private final Rect mTitleBounds = new Rect();
+
+    //main paint
+    private final Paint mStripPaint = new Paint(HIGH_QUALITY_FLAGS) {
+        {
+            setStyle(Style.FILL);
+        }
+    };
+
+    private final Paint mTitlePaint = new TextPaint(HIGH_QUALITY_FLAGS) {
+        {
+            setTextAlign(Align.CENTER);
+        }
+    };
+
+    //动画变量
+    private final ValueAnimator mAnimator = new ValueAnimator();
+    private final ArgbEvaluator mColorEvaluator = new ArgbEvaluator();
+    private final ResizeInterpolator mResizeInterpolator = new ResizeInterpolator();
+    private int mAnimationDuration;
+
+    //title
+    private String[] mTitles;
+
+    //ViewPager 相关变量
+    private ViewPager mViewPager;
+    private ViewPager.OnPageChangeListener mOnPageChangeListener;
+    private int mScrollState;
+
+    //Tab Listener
+    private OnTabStripSelectedIndexListener mOnTabStripSelectedIndexListener;
+    private ValueAnimator.AnimatorListener mAnimatorListener;
+
+    //tab大小
+    private float mTabSize;
+
+    //标题的size 和 margin
+    private float mTitleSize;
+
+    //Strip Type And gravity
+    private StripType mStripType;
+    private StripGravity mStripGravity;
+
+    //
+    private float mStripWeight;
+    private float mCornersRadius;
+
+    //indexes
+    private int mLastIndex = INVALID_INDEX;
+    private int mIndex = INVALID_INDEX;
+
+    //
+    private float mFraction;
+
+    //strip坐标
+    private float mStartStripX;
+    private float mEndStripX;
+    private float mStripLeft;
+    private float mStripRight;
+
+    //检测是否为条形模式或指示器寻呼模式
+    private boolean mIsViewPagerMode;
+    //检测是否从左到右
+    private boolean mIsResizeIn;
+    //检测是否按下
+    private boolean mIsActionDown;
+    // Detect if we get action down event on strip
+    private boolean mIsTabActionDown;
+    //当我们从标签栏和ViewPager设置索引时检测
+    private boolean mIsSetIndexFromTabBar;
+
+    //Color 变量
+    private int mInactiveColor;
+    private int mActiveColor;
+
+    // 自定义 typeface
+    private Typeface mTypeface;
+
+    public TabStrip(Context context) {
+        this(context, null);
+    }
+
+    public TabStrip(Context context, @Nullable AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public TabStrip(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+
+        //初始化
+        setWillNotDraw(false);
+        //Speed and fix for pre 17 API
+        ViewCompat.setLayerType(this, ViewCompat.LAYER_TYPE_SOFTWARE, null);
+        setLayerType(LAYER_TYPE_SOFTWARE, null);
+
+        final TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.TabStrip);
+
+        setStripColor(typedArray.getColor(R.styleable.TabStrip_tab_color, DEFAULT_STRIP_COLOR));
+
+        setTitleSize(typedArray.getDimension(R.styleable.TabStrip_tab_size, DEFAULT_TITLE_SIZE));
+
+        setStripWeight(
+            typedArray.getDimension(R.styleable.TabStrip_tab_weight, DEFAULT_STRIP_WEIGHT));
+
+        setStripFactor(typedArray.getFloat(R.styleable.TabStrip_tab_factor, DEFAULT_STRIP_FACTOR));
+
+        setStripType(typedArray.getInt(R.styleable.TabStrip_tab_type, StripType.LINE_INDEX));
+
+        setStripGravity(
+            typedArray.getInt(R.styleable.TabStrip_tab_gravity, StripGravity.BOTTOM_INDEX));
+
+        setTypeface(typedArray.getString(R.styleable.TabStrip_tab_typeface));
+
+        setInactiveColor(
+            typedArray.getColor(R.styleable.TabStrip_tab_inactive_color, DEFAULT_INACTIVE_COLOR));
+
+        setActiveColor(
+            typedArray.getColor(R.styleable.TabStrip_tab_active_color, DEFAULT_ACTIVE_COLOR));
+
+        setAnimationDuration(typedArray
+            .getInteger(R.styleable.TabStrip_tab_animation_duration, DEFAULT_ANIMATION_DURATION));
+    }
+
+    private void setAnimationDuration(int duration) {
+        mAnimationDuration = duration;
+        mAnimator.setDuration(mAnimationDuration);
+        resetScroller();
+    }
+
+    /**
+     * 重新启动滚动条并重置滚动时间等于动画持续时间
+     */
+    private void resetScroller() {
+        if (mViewPager == null) {
+            return;
+        }
+        try {
+            final Field scrollerField = ViewPager.class.getDeclaredField("mScroller");
+            scrollerField.setAccessible(true);
+            final ResizeViewPagerScroller scroller = new ResizeViewPagerScroller(getContext());
+            scrollerField.set(mViewPager, scroller);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void setActiveColor(int color) {
+        mActiveColor = color;
+        postInvalidate();
+    }
+
+    private void setInactiveColor(int color) {
+        mInactiveColor = color;
+        postInvalidate();
+    }
+
+    private void setTypeface(String typeface) {
+        if (TextUtils.isEmpty(typeface)) {
+            return;
+        }
+
+        Typeface tempTypeface;
+        try {
+            tempTypeface = Typeface.createFromAsset(getContext().getAssets(), typeface);
+        } catch (Exception e) {
+            tempTypeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL);
+            e.printStackTrace();
+        }
+        setTypeface(tempTypeface);
+    }
+
+    private void setTypeface(Typeface typeface) {
+        mTypeface = typeface;
+        mTitlePaint.setTypeface(typeface);
+        postInvalidate();
+    }
+
+    private void setStripGravity(int gravity) {
+        switch (gravity) {
+            case StripGravity.TOP_INDEX:
+                setStripGravity(StripGravity.TOP);
+                break;
+            case StripGravity.BOTTOM_INDEX:
+            default:
+                setStripGravity(StripGravity.BOTTOM);
+                break;
+        }
+    }
+
+    public void setStripGravity(final StripGravity stripGravity) {
+        mStripGravity = stripGravity;
+        requestLayout();
+    }
+
+    private void setStripType(int type) {
+        switch (type) {
+            case StripType.POINT_INDEX:
+                setStripType(StripType.POINT);
+                break;
+            case StripType.LINE_INDEX:
+            default:
+                setStripType(StripType.LINE);
+                break;
+        }
+    }
+
+    public void setStripType(final StripType stripType) {
+        mStripType = stripType;
+        requestLayout();
+    }
+
+    private void setStripFactor(float factor) {
+        mResizeInterpolator.setFactor(factor);
+    }
+
+    private void setStripWeight(float weight) {
+        mStripWeight = weight;
+        requestLayout();
+    }
+
+    private void setTitleSize(float titleSize) {
+        mTitleSize = titleSize;
+        mStripPaint.setTextSize(titleSize);
+        postInvalidate();
+    }
+
+    private void setStripColor(int color) {
+        mStripPaint.setColor(color);
+        postInvalidate();
+    }
+
+    private static class ResizeInterpolator implements Interpolator {
+
+        private float mFactor;
+
+        private boolean mResizeIn;
+
+        public float getFactor() {
+            return mFactor;
+        }
+
+        public void setFactor(float factor) {
+            mFactor = factor;
+        }
+
+        @Override
+        public float getInterpolation(float input) {
+            if (mResizeIn) {
+                return (float) (1.0F - Math.pow((1.0F - input), 2.0F * mFactor));
+            } else {
+                return (float) (Math.pow(input, 2.0F * mFactor));
+            }
+        }
+
+        public float getResizeInterpolation(final float input, final boolean resizeIn) {
+            mResizeIn = resizeIn;
+            return getInterpolation(input);
+        }
+    }
+
+    public enum StripType {
+        LINE, POINT;
+        private final static int LINE_INDEX = 0;
+        private final static int POINT_INDEX = 1;
+    }
+
+    public enum StripGravity {
+        BOTTOM, TOP;
+
+        private final static int BOTTOM_INDEX = 0;
+        private final static int TOP_INDEX = 1;
+    }
+
+    private class ResizeViewPagerScroller extends Scroller {
+
+        public ResizeViewPagerScroller(Context context) {
+            super(context, new AccelerateDecelerateInterpolator());
+        }
+
+        @Override
+        public void startScroll(int startX, int startY, int dx, int dy) {
+            super.startScroll(startX, startY, dx, dy, mAnimationDuration);
+        }
+
+        @Override
+        public void startScroll(int startX, int startY, int dx, int dy, int duration) {
+            super.startScroll(startX, startY, dx, dy, mAnimationDuration);
+        }
+    }
+
+    public interface OnTabStripSelectedIndexListener {
+
+        void onStartTabSelected(final String title, final int index);
+
+        void onEndTabSelected(final String title, final int index);
+    }
+
+}
