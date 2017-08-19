@@ -4,6 +4,7 @@ import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -209,6 +210,108 @@ public class TabStrip extends View {
         });
 
         typedArray.recycle();
+    }
+
+    @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
+        // get measure size
+        final float width = MeasureSpec.getSize(widthMeasureSpec);
+        final float height = MeasureSpec.getSize(heightMeasureSpec);
+
+        // set bounds for nts
+        mBounds.set(0.0f, 0.0f, width, height);
+
+        if (mTitles.length == 0 || width == 0 || height == 0) return;
+
+        // get smaller side
+        mTabSize = width / (float) mTitles.length;
+        if ((int) mTitleSize == DEFAULT_TITLE_SIZE) {
+            setTitleSize((height - mStripWeight) * TITLE_SIZE_FRACTION);
+        }
+
+        //set start position of strip for preview or on  start
+        if (isInEditMode() || !mIsViewPagerMode) {
+            mIsSetIndexFromTabBar = true;
+
+            // set random in preview mode
+            if (isInEditMode()) {
+                mIndex = new Random().nextInt(mTitles.length);
+            }
+
+            mStartStripX =
+                (mIndex * mTabSize) + (mStripType == StripType.POINT ? mTabSize * 0.5f : 0.0f);
+            mEndStripX = mStartStripX;
+            updateIndicatorPosition(MAX_FRACTION);
+        }
+    }
+
+    @Override protected void onDraw(Canvas canvas) {
+        // Set bound of strip
+        mStripBounds.set(mStripLeft - (mStripType == StripType.POINT ? mStripWeight * 0.5f : 0.0f),
+            mStripGravity == StripGravity.BOTTOM ? mBounds.height() - mStripWeight : 0.0f,
+            mStripRight - (mStripType == StripType.POINT ? mStripWeight * 0.5f : 0.0f),
+            mStripGravity == StripGravity.BOTTOM ? mBounds.height() : mStripWeight);
+
+        // Draw strip
+        if (mCornersRadius == 0) {
+            canvas.drawRect(mStripBounds, mStripPaint);
+        } else {
+            canvas.drawRoundRect(mStripBounds, mCornersRadius, mCornersRadius, mStripPaint);
+        }
+
+        // draw tab titles
+        for (int i = 0; i < mTitles.length; i++) {
+            final String title = mTitles[i];
+
+            final float leftTitleOffset = (mTabSize * i) + (mTabSize * 0.5f);
+
+            mTitlePaint.getTextBounds(title, 0, title.length(), mTitleBounds);
+            final float topTitleOffset =
+                (mBounds.height() - mStripWeight) * 0.5f + mTitleBounds.height() * 0.5f
+                    - mTitleBounds.bottom;
+
+            //get interpolater fraction for left last and current tab
+            final float interpolation = mResizeInterpolator.getResizeInterpolation(mFraction, true);
+            final float lastInterpolation =
+                mResizeInterpolator.getResizeInterpolation(mFraction, false);
+
+            if (mIsSetIndexFromTabBar) {
+                if (mIndex == i) {
+                    updateCurrentTitle(interpolation);
+                } else if (mLastIndex == i) {
+                    updateLastTitle(lastInterpolation);
+                } else {
+                    updateInactiveTitle();
+                }
+            } else {
+                if (i != mIndex && i != mIndex + 1) {
+                    updateInactiveTitle();
+                } else if (i == mIndex + 1) {
+                    updateCurrentTitle(interpolation);
+                } else if (i == mIndex) {
+                    updateLastTitle(lastInterpolation);
+                }
+            }
+
+            canvas.drawText(title, leftTitleOffset,
+                topTitleOffset + (mStripGravity == StripGravity.TOP ? mStripWeight : 0.0f),
+                mTitlePaint
+
+            );
+        }
+    }
+
+    private void updateInactiveTitle() {
+
+    }
+
+    private void updateLastTitle(float lastInterpolation) {
+
+    }
+
+    private void updateCurrentTitle(float interpolation) {
+
     }
 
     private void updateIndicatorPosition(float fraction) {
